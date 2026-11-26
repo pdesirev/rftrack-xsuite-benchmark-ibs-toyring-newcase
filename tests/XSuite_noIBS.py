@@ -180,7 +180,7 @@ ENDMATCH;
 PRINT, TEXT="After Step 1: FMINS =", VALUE=FMINS;
 PRINT, TEXT="K1(QF) =", VALUE=QF->K1;
 PRINT, TEXT="K1(QD) =", VALUE=QD->K1;
-TWISS, FILE="twiss_withCavity2.tws";
+TWISS, FILE="../lattice/twiss_withCavity2.tws";
 ''')
 line = xt.Line.from_madx_sequence(
     sequence=mad.sequence.ring,

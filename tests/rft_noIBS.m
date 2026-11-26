@@ -11,7 +11,7 @@ B = load("initial_bunch_25pC.txt");
 B0 = Bunch6d(B);
 % LATTICE
 % OPTION 1
-RING = Lattice('twiss_withCavity2.tws');
+RING = Lattice('../lattice/twiss_withCavity2.tws');
 
 A = RING{'*'};
 
@@ -31,12 +31,12 @@ for i=1:num_turns
     disp(i)
     disp(B1.get_info().emitt_x)
     %T = [ T ; RING.get_transport_table(['%S %beta_x %beta_y %emitt_x %emitt_y %sigma_x %sigma_y %emitt_4d']) ];
-    filename = sprintf('Results/ps_noIBS/phase_space_%d.dat', i);
+    filename = sprintf('../Results/ps_noIBS/phase_space_%d.dat', i);
     M = B1.get_phase_space;
     save(filename, 'M', '-ascii');
     B0 = B1;
 end
 
-save -ascii 'Results/noIBS_emittx.dat' emitt_x
-%save -ascii 'Results/convergence_tests/mesh/32.dat' emitt_x
+save -ascii '../Results/noIBS_emittx.dat' emitt_x
+%save -ascii '../Results/convergence_tests/mesh/32.dat' emitt_x
 

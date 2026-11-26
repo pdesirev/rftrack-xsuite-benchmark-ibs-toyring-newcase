@@ -6,7 +6,7 @@ import xfields as xf
 import xcoll as xc
 import matplotlib.pyplot as plt
 import xobjects as xo
-
+import os
 mad = Madx()
 
 mad.input('''!===========================================================
@@ -180,7 +180,7 @@ ENDMATCH;
 PRINT, TEXT="After Step 1: FMINS =", VALUE=FMINS;
 PRINT, TEXT="K1(QF) =", VALUE=QF->K1;
 PRINT, TEXT="K1(QD) =", VALUE=QD->K1;
-TWISS, FILE="twiss_withCavity2.tws";
+TWISS, FILE="../lattice/twiss_withCavity2.tws";
 ''')
 line = xt.Line.from_madx_sequence(
     sequence=mad.sequence.ring,
@@ -198,20 +198,13 @@ monitor = xc.EmittanceMonitor.install(
     line=line,
       name="monitor",  # Create a unique name for each monitor
       at_s= 0.001,       # Position scaled by the index
-      stop_at_turn=1000,        # Number of turns to track
+      stop_at_turn=5000,        # Number of turns to track
 )
-monitor2 = xt.ParticlesMonitor(
-    start_at_turn=1,
-    stop_at_turn=1000,
-    num_particles=10000,
-    auto_to_numpy=True
-)
-
 
 line.build_tracker(_context=context)
 ibs_kick = xf.IBSAnalyticalKick(formalism="nagaitsev", num_slices=100)
 line.configure_intrabeam_scattering(
-    element=ibs_kick, name="ibskick", index=1, update_every=5
+    element=ibs_kick, name="ibskick", at=line.get_length(), update_every=5
 )
 
 import json
@@ -219,53 +212,61 @@ import json
 with open("particles_25pC.json", 'r') as fid:
     particles= xp.Particles.from_dict(json.load(fid), _context=context)
 
-line.track(particles, num_turns=1000, with_progress=1, turn_by_turn_monitor=True)
 
 
-nemitt_x_values = monitor.nemitt_x
-nemitt_y_values = monitor.nemitt_y
-nemitt_z_values = monitor.nemitt_zeta
-gemitt_z_values = monitor.gemitt_zeta
-at_s_points = [i for i in range(100)]
-nemitt_x_values = np.array(nemitt_x_values)
-nemitt_y_values = np.array(nemitt_y_values)
-nemitt_z_values = np.array(nemitt_z_values)
-gemitt_z_values = np.array(gemitt_z_values)
+file_path_x = "../Results/XSuite_ana_nemitt_x.dat"
+file_path_y = "../Results/XSuite_ana_nemitt_y.dat"
+file_path_z = "../Results/XSuite_ana_nemitt_z.dat"
+file_path_gz = "../Results/XSuite_ana_gemitt_z.dat"
 
-rec = line.record_last_track
-x = rec.x
-px = rec.px
-y = rec.y
-py = rec.py
-zeta = rec.zeta
-beta0 = rec.beta0
-delta = rec.delta
-p0c = rec.p0c
-for turn in range(1000):
+# delete file if it already exists
+if os.path.exists(file_path_x):
+    os.remove(file_path_x)
+
+if os.path.exists(file_path_y):
+    os.remove(file_path_y)
+
+if os.path.exists(file_path_z):
+    os.remove(file_path_z)
+
+if os.path.exists(file_path_gz):
+    os.remove(file_path_gz)
+
+
+nemitt_x_values = []
+nemitt_y_values = []
+nemitt_z_values = []
+gemitt_z_values = []
+
+for i in range(200):
+  print(i)
+  x = particles.x
+  px = particles.px
+  y = particles.y
+  py = particles.py
+  zeta = particles.zeta
+  beta0 = particles.beta0
+  delta = particles.delta
+  p0c = particles.p0c
   N = x.shape[0]
-  P = 1.0 + delta[:, turn]
-  Pz = np.sqrt(P**2 - px[:, turn]**2 - py[:, turn]**2)
+  P = 1.0 + delta
+  Pz = np.sqrt(P**2 - px**2 - py**2)
   phase_space = np.zeros((N, 9))
-  phase_space[:, 0] = x[:, turn] * 1e3
-  phase_space[:, 1] = px[:, turn] * 1e3 / Pz
-  phase_space[:, 2] = y[:, turn] * 1e3
-  phase_space[:, 3] = py[:, turn] * 1e3 / Pz
-  phase_space[:, 4] = -zeta[:, turn] * 1e3 / beta0[:, turn]
-  phase_space[:, 5] = p0c[:, turn] * P / 1e6
-  np.savetxt(
-        f"Results/PS_XSuite_ana/ps_{turn+1}.dat",
-        phase_space,
-        fmt="%.6e"
-    )
-
-line.discard_tracker()
-
-file_path_x = "Results/XSuite_analytical_25pC_nemitt_x_1000.dat"
-file_path_y = "Results/XSuite_analytical_25pC_nemitt_y_1000.dat"
-file_path_z = "Results/XSuite_analytical_25pC_nemitt_z_1000.dat"
-file_path_gz = "Results/XSuite_analytical_25pC_gemitt_z_1000.dat"
-
-#np.savetxt(file_path_x, nemitt_x_values, fmt="%.6e")  # Adjust format if needed
-#np.savetxt(file_path_y, nemitt_y_values, fmt="%.6e")  # Adjust format if needed
-#np.savetxt(file_path_z, nemitt_z_values, fmt="%.6e")  # Adjust format if needed
-#np.savetxt(file_path_gz, gemitt_z_values, fmt="%.6e")  # Adjust format if needed
+  phase_space[:, 0] = x * 1e3
+  phase_space[:, 1] = px * 1e3 / Pz
+  phase_space[:, 2] = y * 1e3
+  phase_space[:, 3] = py * 1e3 / Pz
+  phase_space[:, 4] = -zeta * 1e3 / beta0
+  phase_space[:, 5] = p0c * P / 1e6
+  np.savetxt(f"../Results/PS_XSuite_ana/ps_{i}.dat", phase_space, fmt="%.6e")
+  monitor.reset()
+  line.track(particles, num_turns=25, with_progress=1, turn_by_turn_monitor=True)
+  nemitt_x_values = np.array(monitor.nemitt_x)
+  nemitt_y_values = np.array(monitor.nemitt_y)
+  nemitt_z_values = np.array(monitor.nemitt_zeta)
+  gemitt_z_values = np.array(monitor.gemitt_zeta)
+  np.savetxt(file_path_x, nemitt_x_values, fmt="%.6e")  # Adjust format if needed
+  np.savetxt(file_path_y, nemitt_y_values, fmt="%.6e")  # Adjust format if needed
+  np.savetxt(file_path_z, nemitt_z_values, fmt="%.6e")  # Adjust format if needed
+  np.savetxt(file_path_gz, gemitt_z_values, fmt="%.6e")  # Adjust format if needed
+  
